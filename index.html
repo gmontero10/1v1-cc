@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <title>Tap Wars - 1v1 Battle</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        html, body {
+            height: 100%;
+            overflow: hidden;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1a1a2e;
+        }
+
+        .game-container {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            width: 100%;
+            position: relative;
+        }
+
+        /* Player Zones */
+        .player-zone {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            transition: background-color 0.1s;
+            cursor: pointer;
+        }
+
+        .player-zone.player1 {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            transform: rotate(180deg);
+        }
+
+        .player-zone.player2 {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+
+        .player-zone.tapped {
+            filter: brightness(1.3);
+        }
+
+        .player-zone.winner {
+            animation: winner-pulse 0.5s ease-in-out infinite;
+        }
+
+        @keyframes winner-pulse {
+            0%, 100% { filter: brightness(1); }
+            50% { filter: brightness(1.5); }
+        }
+
+        .player-label {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: rgba(255, 255, 255, 0.8);
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            margin-bottom: 10px;
+        }
+
+        .score {
+            font-size: 4rem;
+            font-weight: bold;
+            color: white;
+            text-shadow: 2px 2px 10px rgba(0, 0, 0, 0.3);
+        }
+
+        .tap-hint {
+            font-size: 1rem;
+            color: rgba(255, 255, 255, 0.6);
+            margin-top: 10px;
+        }
+
+        /* Battle Bar */
+        .battle-area {
+            height: 80px;
+            background: #16213e;
+            position: relative;
+            display: flex;
+            align-items: center;
+            overflow: hidden;
+            box-shadow: 0 0 30px rgba(0, 0, 0, 0.5);
+        }
+
+        .battle-track {
+            width: 100%;
+            height: 40px;
+            background: #0f3460;
+            position: relative;
+            border-radius: 20px;
+            margin: 0 10px;
+            overflow: hidden;
+        }
+
+        .battle-fill-p1 {
+            position: absolute;
+            left: 0;
+            top: 0;
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            transition: width 0.05s ease-out;
+            border-radius: 20px 0 0 20px;
+        }
+
+        .battle-fill-p2 {
+            position: absolute;
+            right: 0;
+            top: 0;
+            height: 100%;
+            background: linear-gradient(90deg, #f5576c, #f093fb);
+            transition: width 0.05s ease-out;
+            border-radius: 0 20px 20px 0;
+        }
+
+        .battle-ball {
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            background: radial-gradient(circle at 30% 30%, #ffffff, #e0e0e0);
+            border-radius: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            transition: left 0.05s ease-out;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4), inset 0 -5px 15px rgba(0, 0, 0, 0.1);
+            z-index: 10;
+        }
+
+        .goal-zone {
+            position: absolute;
+            top: 0;
+            height: 100%;
+            width: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .goal-zone.left {
+            left: 0;
+            background: linear-gradient(90deg, #f5576c, transparent);
+        }
+
+        .goal-zone.right {
+            right: 0;
+            background: linear-gradient(-90deg, #764ba2, transparent);
+        }
+
+        /* Menu Screen */
+        .menu-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            transition: opacity 0.3s, visibility 0.3s;
+        }
+
+        .menu-screen.hidden {
+            opacity: 0;
+            visibility: hidden;
+        }
+
+        .game-title {
+            font-size: 3rem;
+            font-weight: bold;
+            color: white;
+            text-shadow: 0 0 20px rgba(102, 126, 234, 0.8);
+            margin-bottom: 10px;
+            animation: title-glow 2s ease-in-out infinite;
+        }
+
+        @keyframes title-glow {
+            0%, 100% { text-shadow: 0 0 20px rgba(102, 126, 234, 0.8); }
+            50% { text-shadow: 0 0 40px rgba(240, 147, 251, 0.8); }
+        }
+
+        .game-subtitle {
+            font-size: 1.2rem;
+            color: rgba(255, 255, 255, 0.6);
+            margin-bottom: 40px;
+        }
+
+        .menu-btn {
+            padding: 20px 60px;
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: white;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            margin: 10px;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+        }
+
+        .menu-btn:hover, .menu-btn:active {
+            transform: scale(1.05);
+            box-shadow: 0 15px 40px rgba(102, 126, 234, 0.6);
+        }
+
+        .menu-btn.secondary {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            box-shadow: 0 10px 30px rgba(245, 87, 108, 0.4);
+        }
+
+        .menu-btn.secondary:hover, .menu-btn.secondary:active {
+            box-shadow: 0 15px 40px rgba(245, 87, 108, 0.6);
+        }
+
+        .rounds-info {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 1rem;
+            margin-top: 30px;
+        }
+
+        .rounds-selector {
+            display: flex;
+            gap: 15px;
+            margin-top: 10px;
+        }
+
+        .round-btn {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            background: transparent;
+            color: white;
+            font-size: 1.2rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .round-btn.selected {
+            border-color: #667eea;
+            background: rgba(102, 126, 234, 0.3);
+            box-shadow: 0 0 20px rgba(102, 126, 234, 0.5);
+        }
+
+        /* Win Screen */
+        .win-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s, visibility 0.3s;
+        }
+
+        .win-screen.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .winner-text {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: white;
+            margin-bottom: 20px;
+            animation: winner-bounce 0.5s ease-out;
+        }
+
+        .winner-text.p1 {
+            color: #764ba2;
+            text-shadow: 0 0 30px rgba(118, 75, 162, 0.8);
+        }
+
+        .winner-text.p2 {
+            color: #f5576c;
+            text-shadow: 0 0 30px rgba(245, 87, 108, 0.8);
+        }
+
+        @keyframes winner-bounce {
+            0% { transform: scale(0); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+
+        .final-score {
+            font-size: 1.5rem;
+            color: rgba(255, 255, 255, 0.7);
+            margin-bottom: 40px;
+        }
+
+        /* Round indicator */
+        .round-indicator {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 5rem;
+            font-weight: bold;
+            color: white;
+            text-shadow: 0 0 30px rgba(255, 255, 255, 0.8);
+            z-index: 50;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .round-indicator.visible {
+            animation: countdown 0.5s ease-out forwards;
+        }
+
+        @keyframes countdown {
+            0% { opacity: 1; transform: translate(-50%, -50%) scale(2); }
+            100% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+        }
+
+        /* Tap effects */
+        .tap-effect {
+            position: absolute;
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.3);
+            pointer-events: none;
+            animation: tap-ripple 0.4s ease-out forwards;
+        }
+
+        @keyframes tap-ripple {
+            0% { transform: translate(-50%, -50%) scale(0); opacity: 1; }
+            100% { transform: translate(-50%, -50%) scale(2); opacity: 0; }
+        }
+
+        /* Match score */
+        .match-score {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 20px;
+            z-index: 20;
+        }
+
+        .match-score-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .match-score-label {
+            font-size: 0.8rem;
+            color: rgba(255, 255, 255, 0.5);
+            text-transform: uppercase;
+        }
+
+        .match-score-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: white;
+        }
+
+        .match-score-value.p1 {
+            color: #764ba2;
+        }
+
+        .match-score-value.p2 {
+            color: #f5576c;
+        }
+
+        /* How to play */
+        .how-to-play {
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 0.9rem;
+            text-align: center;
+            margin-top: 40px;
+            line-height: 1.6;
+            padding: 0 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <!-- Menu Screen -->
+        <div class="menu-screen" id="menuScreen">
+            <div class="game-title">TAP WARS</div>
+            <div class="game-subtitle">1v1 Battle</div>
+
+            <button class="menu-btn" onclick="startGame()">START GAME</button>
+
+            <div class="rounds-info">Best of:</div>
+            <div class="rounds-selector">
+                <button class="round-btn" data-rounds="3" onclick="selectRounds(3)">3</button>
+                <button class="round-btn selected" data-rounds="5" onclick="selectRounds(5)">5</button>
+                <button class="round-btn" data-rounds="7" onclick="selectRounds(7)">7</button>
+            </div>
+
+            <div class="how-to-play">
+                Two players, one phone!<br>
+                Tap your side to push the ball<br>
+                Score when it reaches the opponent's goal!
+            </div>
+        </div>
+
+        <!-- Win Screen -->
+        <div class="win-screen" id="winScreen">
+            <div class="winner-text" id="winnerText">PLAYER 1 WINS!</div>
+            <div class="final-score" id="finalScore">3 - 2</div>
+            <button class="menu-btn" onclick="showMenu()">PLAY AGAIN</button>
+            <button class="menu-btn secondary" onclick="rematch()">REMATCH</button>
+        </div>
+
+        <!-- Round Indicator -->
+        <div class="round-indicator" id="roundIndicator">3</div>
+
+        <!-- Player 1 Zone (Top - rotated 180deg) -->
+        <div class="player-zone player1" id="player1Zone">
+            <div class="tap-hint">TAP!</div>
+            <div class="score" id="player1Score">0</div>
+            <div class="player-label">Player 1</div>
+        </div>
+
+        <!-- Battle Area -->
+        <div class="battle-area">
+            <div class="match-score">
+                <div class="match-score-item">
+                    <span class="match-score-label">P1</span>
+                    <span class="match-score-value p1" id="p1Wins">0</span>
+                </div>
+                <div class="match-score-item">
+                    <span class="match-score-label">P2</span>
+                    <span class="match-score-value p2" id="p2Wins">0</span>
+                </div>
+            </div>
+            <div class="battle-track">
+                <div class="goal-zone left"></div>
+                <div class="goal-zone right"></div>
+                <div class="battle-fill-p1" id="battleFillP1"></div>
+                <div class="battle-fill-p2" id="battleFillP2"></div>
+                <div class="battle-ball" id="battleBall"></div>
+            </div>
+        </div>
+
+        <!-- Player 2 Zone (Bottom) -->
+        <div class="player-zone player2" id="player2Zone">
+            <div class="player-label">Player 2</div>
+            <div class="score" id="player2Score">0</div>
+            <div class="tap-hint">TAP!</div>
+        </div>
+    </div>
+
+    <script>
+        // Game State
+        const state = {
+            ballPosition: 50, // 0-100, 50 is center
+            player1Taps: 0,
+            player2Taps: 0,
+            player1Wins: 0,
+            player2Wins: 0,
+            roundsToWin: 3,
+            isPlaying: false,
+            roundInProgress: false,
+            lastTapTime: { p1: 0, p2: 0 }
+        };
+
+        // DOM Elements
+        const elements = {
+            menuScreen: document.getElementById('menuScreen'),
+            winScreen: document.getElementById('winScreen'),
+            roundIndicator: document.getElementById('roundIndicator'),
+            player1Zone: document.getElementById('player1Zone'),
+            player2Zone: document.getElementById('player2Zone'),
+            player1Score: document.getElementById('player1Score'),
+            player2Score: document.getElementById('player2Score'),
+            battleBall: document.getElementById('battleBall'),
+            battleFillP1: document.getElementById('battleFillP1'),
+            battleFillP2: document.getElementById('battleFillP2'),
+            p1Wins: document.getElementById('p1Wins'),
+            p2Wins: document.getElementById('p2Wins'),
+            winnerText: document.getElementById('winnerText'),
+            finalScore: document.getElementById('finalScore')
+        };
+
+        // Constants
+        const TAP_POWER = 2.5;
+        const FRICTION = 0.97;
+        const GOAL_THRESHOLD = 5;
+        const MIN_TAP_INTERVAL = 30; // Minimum ms between taps
+
+        let velocity = 0;
+        let animationId = null;
+
+        // Sound effects using Web Audio API
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        function playSound(frequency, type = 'sine', duration = 0.1) {
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+
+            oscillator.frequency.value = frequency;
+            oscillator.type = type;
+
+            gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+
+            oscillator.start(audioCtx.currentTime);
+            oscillator.stop(audioCtx.currentTime + duration);
+        }
+
+        function playTapSound(player) {
+            playSound(player === 1 ? 440 : 523, 'sine', 0.05);
+        }
+
+        function playGoalSound() {
+            playSound(880, 'square', 0.2);
+            setTimeout(() => playSound(1100, 'square', 0.2), 100);
+            setTimeout(() => playSound(1320, 'square', 0.3), 200);
+        }
+
+        function playWinSound() {
+            const notes = [523, 659, 784, 1047];
+            notes.forEach((note, i) => {
+                setTimeout(() => playSound(note, 'sine', 0.3), i * 150);
+            });
+        }
+
+        // Round selector
+        function selectRounds(rounds) {
+            state.roundsToWin = Math.ceil(rounds / 2);
+            document.querySelectorAll('.round-btn').forEach(btn => {
+                btn.classList.toggle('selected', parseInt(btn.dataset.rounds) === rounds);
+            });
+        }
+
+        // Start game
+        function startGame() {
+            state.player1Wins = 0;
+            state.player2Wins = 0;
+            state.isPlaying = true;
+            elements.menuScreen.classList.add('hidden');
+            updateMatchScore();
+            startRound();
+        }
+
+        // Start a new round
+        function startRound() {
+            state.ballPosition = 50;
+            state.player1Taps = 0;
+            state.player2Taps = 0;
+            velocity = 0;
+
+            updateUI();
+            countdown();
+        }
+
+        // Countdown before round
+        function countdown() {
+            let count = 3;
+            state.roundInProgress = false;
+
+            const countInterval = setInterval(() => {
+                elements.roundIndicator.textContent = count;
+                elements.roundIndicator.classList.remove('visible');
+                void elements.roundIndicator.offsetWidth; // Trigger reflow
+                elements.roundIndicator.classList.add('visible');
+                playSound(count === 0 ? 880 : 440, 'sine', 0.15);
+
+                count--;
+                if (count < 0) {
+                    clearInterval(countInterval);
+                    elements.roundIndicator.textContent = 'GO!';
+                    elements.roundIndicator.classList.remove('visible');
+                    void elements.roundIndicator.offsetWidth;
+                    elements.roundIndicator.classList.add('visible');
+                    state.roundInProgress = true;
+                    startGameLoop();
+                }
+            }, 600);
+        }
+
+        // Game loop
+        function startGameLoop() {
+            if (animationId) cancelAnimationFrame(animationId);
+
+            function gameLoop() {
+                if (!state.roundInProgress) return;
+
+                // Apply friction
+                velocity *= FRICTION;
+
+                // Update ball position
+                state.ballPosition += velocity;
+
+                // Check for goals
+                if (state.ballPosition <= GOAL_THRESHOLD) {
+                    // Player 2 scores!
+                    state.player2Wins++;
+                    endRound(2);
+                    return;
+                } else if (state.ballPosition >= 100 - GOAL_THRESHOLD) {
+                    // Player 1 scores!
+                    state.player1Wins++;
+                    endRound(1);
+                    return;
+                }
+
+                // Clamp position
+                state.ballPosition = Math.max(GOAL_THRESHOLD, Math.min(100 - GOAL_THRESHOLD, state.ballPosition));
+
+                updateUI();
+                animationId = requestAnimationFrame(gameLoop);
+            }
+
+            gameLoop();
+        }
+
+        // End round
+        function endRound(winner) {
+            state.roundInProgress = false;
+            if (animationId) cancelAnimationFrame(animationId);
+
+            playGoalSound();
+            updateMatchScore();
+
+            const winnerZone = winner === 1 ? elements.player1Zone : elements.player2Zone;
+            winnerZone.classList.add('winner');
+
+            setTimeout(() => {
+                winnerZone.classList.remove('winner');
+
+                // Check for match winner
+                if (state.player1Wins >= state.roundsToWin) {
+                    endMatch(1);
+                } else if (state.player2Wins >= state.roundsToWin) {
+                    endMatch(2);
+                } else {
+                    startRound();
+                }
+            }, 1500);
+        }
+
+        // End match
+        function endMatch(winner) {
+            state.isPlaying = false;
+            playWinSound();
+
+            elements.winnerText.textContent = `PLAYER ${winner} WINS!`;
+            elements.winnerText.className = `winner-text p${winner}`;
+            elements.finalScore.textContent = `${state.player1Wins} - ${state.player2Wins}`;
+            elements.winScreen.classList.add('visible');
+        }
+
+        // Show menu
+        function showMenu() {
+            elements.winScreen.classList.remove('visible');
+            elements.menuScreen.classList.remove('hidden');
+        }
+
+        // Rematch (same settings)
+        function rematch() {
+            elements.winScreen.classList.remove('visible');
+            state.player1Wins = 0;
+            state.player2Wins = 0;
+            updateMatchScore();
+            startRound();
+            state.isPlaying = true;
+        }
+
+        // Update UI
+        function updateUI() {
+            elements.player1Score.textContent = state.player1Taps;
+            elements.player2Score.textContent = state.player2Taps;
+
+            // Update ball position
+            elements.battleBall.style.left = `${state.ballPosition}%`;
+
+            // Update fill bars
+            const p1Fill = Math.max(0, 50 - state.ballPosition);
+            const p2Fill = Math.max(0, state.ballPosition - 50);
+            elements.battleFillP1.style.width = `${50 - p1Fill}%`;
+            elements.battleFillP2.style.width = `${50 - p2Fill}%`;
+        }
+
+        // Update match score
+        function updateMatchScore() {
+            elements.p1Wins.textContent = state.player1Wins;
+            elements.p2Wins.textContent = state.player2Wins;
+        }
+
+        // Create tap effect
+        function createTapEffect(x, y, zone) {
+            const effect = document.createElement('div');
+            effect.className = 'tap-effect';
+            effect.style.left = `${x}px`;
+            effect.style.top = `${y}px`;
+            zone.appendChild(effect);
+
+            setTimeout(() => effect.remove(), 400);
+        }
+
+        // Handle tap
+        function handleTap(player, event) {
+            if (!state.isPlaying || !state.roundInProgress) return;
+
+            // Resume audio context on first interaction
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+
+            const now = Date.now();
+            const lastTap = player === 1 ? state.lastTapTime.p1 : state.lastTapTime.p2;
+
+            // Prevent too rapid tapping
+            if (now - lastTap < MIN_TAP_INTERVAL) return;
+
+            if (player === 1) {
+                state.lastTapTime.p1 = now;
+                state.player1Taps++;
+                velocity += TAP_POWER; // Push towards player 2's goal (right)
+            } else {
+                state.lastTapTime.p2 = now;
+                state.player2Taps++;
+                velocity -= TAP_POWER; // Push towards player 1's goal (left)
+            }
+
+            playTapSound(player);
+
+            // Visual feedback
+            const zone = player === 1 ? elements.player1Zone : elements.player2Zone;
+            zone.classList.add('tapped');
+            setTimeout(() => zone.classList.remove('tapped'), 100);
+
+            // Create tap effect
+            if (event.touches) {
+                const touch = event.touches[0];
+                const rect = zone.getBoundingClientRect();
+                createTapEffect(touch.clientX - rect.left, touch.clientY - rect.top, zone);
+            }
+        }
+
+        // Event listeners for touch
+        elements.player1Zone.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            handleTap(1, e);
+        }, { passive: false });
+
+        elements.player2Zone.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            handleTap(2, e);
+        }, { passive: false });
+
+        // Mouse support for testing
+        elements.player1Zone.addEventListener('mousedown', (e) => handleTap(1, e));
+        elements.player2Zone.addEventListener('mousedown', (e) => handleTap(2, e));
+
+        // Prevent default touch behaviors
+        document.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
+
+        // Initialize
+        selectRounds(5);
+    </script>
+</body>
+</html>
